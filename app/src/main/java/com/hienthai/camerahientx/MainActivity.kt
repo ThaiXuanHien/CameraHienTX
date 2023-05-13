@@ -8,7 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
-import android.view.KeyEvent
+import android.view.ScaleGestureDetector
 import android.widget.Toast
 import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraInfo
@@ -79,7 +79,12 @@ class MainActivity : AppCompatActivity() {
         viewBinding.cameraCaptureButton.setOnClickListener { takePhoto() }
         viewBinding.cameraTorchButton.setOnClickListener { toggleTorch() }
         viewBinding.cameraFlipButton.setOnClickListener { flipCamera() }
-
+        val scaleGestureDetector = ScaleGestureDetector(this, zoomListener)
+        viewBinding.viewFinder.setOnTouchListener { v, event ->
+            v.performClick()
+            scaleGestureDetector.onTouchEvent(event)
+            return@setOnTouchListener true
+        }
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
 
@@ -275,7 +280,6 @@ class MainActivity : AppCompatActivity() {
                 cameraControl = camera.cameraControl
                 cameraInfo = camera.cameraInfo
                 setTorchStateObserver()
-                setZoomStateObserver()
             } catch (exc: Exception) {
                 Log.e(TAG, "Use case binding failed", exc)
             }
@@ -320,36 +324,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Manage camera Zoom
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        return when (keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (linearZoom <= 0.9) {
-                    linearZoom += 0.1f
-                }
-                cameraControl?.setLinearZoom(linearZoom)
-                true
-            }
-
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (linearZoom >= 0.1) {
-                    linearZoom -= 0.1f
-                }
-                cameraControl?.setLinearZoom(linearZoom)
-                true
-            }
-
-            else -> super.onKeyDown(keyCode, event)
-        }
-    }
-
-    private fun setZoomStateObserver() {
-        cameraInfo?.zoomState?.observe(this) { state ->
-            // state.linearZoom
-            // state.zoomRatio
-            // state.maxZoomRatio
-            // state.minZoomRatio
-            Log.d(TAG, "${state.linearZoom}")
+    private val zoomListener = object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScale(detector: ScaleGestureDetector): Boolean {
+            val scale = (cameraInfo?.zoomState?.value?.zoomRatio ?: 0F) * detector.scaleFactor
+            cameraControl?.setZoomRatio(scale)
+            return true
         }
     }
 
